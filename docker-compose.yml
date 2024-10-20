@@ -1,0 +1,54 @@
+services:
+  web:
+    container_name: cism_django
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always  
+    command: >
+      sh -c "
+        python manage.py makemigrations &&
+        python manage.py makemigrations blog &&
+        python manage.py migrate --noinput &&
+        python manage.py collectstatic --noinput &&
+        gunicorn config.wsgi:application --bind 0.0.0.0:8000 --timeout 600 --workers 4 --threads 4
+      "
+    volumes:
+      - static:/backend/static
+      - media:/backend/media
+      - ./backend/blog/migrations:/backend/blog/migrations
+    expose:
+      - 8000
+    env_file:
+      - .env
+    depends_on:
+      - db
+    
+
+  db:
+    container_name: cism_db
+    image: postgres:16.2
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - .env
+    ports:
+      - 5433:5433
+
+  nginx:
+    container_name: cism_nginx
+    build: ./nginx
+    restart: always
+    volumes:
+      - static:/backend/static
+      - media:/backend/media
+    ports:
+      - 80:80
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:
+  static:
+  media:
